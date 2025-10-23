@@ -1,0 +1,559 @@
+---
+title: "Class Zero-Sum Beliefs"
+subtitle: "Study 1: Analysis Report"
+Author: "Dean Baltiansky"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    code_folding: hide
+knit: (function(input_file, encoding) { rmarkdown::render(input_file, encoding = encoding, output_file = 'index.html', output_dir = here::here('docs','studies','study-1')); })
+---
+
+```{r,include=FALSE}
+detachAllPackages <- function() {
+
+  basic.packages <- c("package:stats","package:graphics","package:grDevices","package:utils","package:datasets","package:methods","package:base")
+
+  package.list <- search()[ifelse(unlist(gregexpr("package:",search()))==1,TRUE,FALSE)]
+
+  package.list <- setdiff(package.list,basic.packages)
+
+  if (length(package.list)>0)  for (package in package.list) detach(package, character.only=TRUE)
+
+}
+
+detachAllPackages()
+```
+
+```{r,include=FALSE}
+library(apa)
+library(see)
+library(lme4)
+library(lmerTest)
+library(interactions)
+library(jtools)
+library(gridExtra)
+library(kableExtra)
+library(apaTables)
+library(papaja)
+library(knitr)
+library(psych)
+library(GPArotation)
+library(PerformanceAnalytics)
+library(gt)
+library(tidytext)
+library(textdata)
+library(tidyverse)
+library(diagram)
+library(factoextra)
+library(SnowballC)
+library(hunspell)
+library(quanteda)
+
+repo_url <- "https://raw.githubusercontent.com/deanbaltiansky/class-zero-sum-beliefs/main/study-1/data/"
+
+df_czs <- readr::read_csv(paste0(repo_url,"df_czs.csv"), show_col_types = FALSE)
+```
+
+```{r,include=FALSE,message=FALSE,warning=FALSE}
+df_s1 <- df_s1 %>% 
+    mutate(income = factor(income,c("$0-$20,000",
+                                  "$20,001-$40,000",
+                                  "$40,001-$60,000",
+                                  "$60,001-$80,000",
+                                  "$80,001-$100,000",
+                                  "$100,001-$120,000",
+                                  "$120,001-$140,000",
+                                  "$140,001-$160,000",
+                                  "$160,001-$180,000",
+                                  "$180,001-$200,000",
+                                  "Over $200,000")),
+         edu = factor(edu,c("noHS",
+                            "GED",
+                            "2yearColl",
+                            "4yearColl",
+                            "MA",
+                            "PHD")),
+         class = factor(class,c("Lower Class",
+                                "Working Class",
+                                "Lower Middle Class",
+                                "Middle Class",
+                                "Upper Middle Class",
+                                "Upper Class")),
+         white = ifelse(race == "White",1,0),
+         man = ifelse(gender == "man",1,0)) %>% 
+  mutate(income_num = as.numeric(income),
+         edu_num = as.numeric(edu),
+         class_num = as.numeric(class))
+```
+
+# Background
+
+# Description
+
+# Hypotheses
+
+# Study design
+
+# Analysis plan
+
+# Data Collection
+
+```{r,include=FALSE,message=FALSE,warning=FALSE}
+df_s1_elg <- df_s1 %>% 
+  filter(att_1 == 1)
+
+n_total <- df_s1 %>% 
+  nrow()
+
+n_elg <- df_s1 %>% 
+  filter(att_1 == 1) %>% 
+  nrow()
+```
+
+A total of **`r n_total`** participants took the survey. Of them, **`r n_total-n_elg`** failed an attention check. That leaves us with **`r n_elg`** eligible participants.
+
+# Demographics
+
+## Gender
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+df_s1_elg %>% 
+  mutate(gender = ifelse(is.na(gender) | gender == "","other",gender)) %>% 
+  group_by(gender) %>% 
+  summarise(N = n()) %>% 
+  arrange(desc(N)) %>% 
+  ungroup() %>% 
+  kableExtra::kable(booktabs = T,
+                    format = "latex")
+```
+
+## Race
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+df_s1_elg %>% 
+  group_by(race) %>% 
+  summarise(N = n()) %>% 
+  arrange(desc(N)) %>% 
+  ungroup() %>% 
+  kableExtra::kable(booktabs = T,
+                    format = "latex")
+```
+
+## Age
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+mean_age <- df_s1_elg %>% 
+  summarise(age = mean(age,na.rm = T)) %>% 
+  unlist() %>% 
+  unname()
+```
+
+Mean age: **`r round(mean_age,2)`**.
+
+## Income
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+median_income_num <- df_s1_elg %>% 
+  mutate(income_num = as.numeric(income)) %>% 
+  summarise(median = median(income_num,na.rm = T))
+
+median_income <- median_income_num %>% 
+  mutate(income_char = case_when(median == 1 ~ "$0-$20,000",
+                                 median == 2 ~ "$20,001-$40,000",
+                                 median == 3 ~ "$40,001-$60,000",
+                                 median == 4 ~ "$60,001-$80,000",
+                                 median == 5 ~ "$80,001-$100,000",
+                                 median == 6 ~ "$100,001-$120,000",
+                                 median == 7 ~ "$120,001-$140,000",
+                                 median == 8 ~ "$140,001-$160,000",
+                                 median == 9 ~ "$160,001-$180,000",
+                                 median == 10 ~ "$180,001-$200,000",
+                                 median == 11 ~ "Over $200,000")) %>% 
+  select(income_char) %>% 
+  unlist() %>% 
+  unname()
+
+df_s1_elg %>% 
+  group_by(income) %>% 
+  summarise(N = n()) %>% 
+  ungroup() %>% 
+  kableExtra::kable(booktabs = T,
+                    format = "latex")
+```
+\
+Median income: **`r median_income`**.
+
+## Education
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+df_s1_elg %>% 
+  group_by(edu) %>% 
+  summarise(N = n()) %>% 
+  ungroup() %>% 
+  kableExtra::kable(booktabs = T,
+                    format = "latex")
+
+```
+
+## Class
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+df_s1_elg %>% 
+  group_by(class) %>% 
+  summarise(N = n()) %>% 
+  ungroup() %>% 
+  kableExtra::kable(booktabs = T,
+                    format = "latex")
+
+```
+
+# Politics
+
+## Political ideology
+
+Participants were asked about the extent to which they subscribe to the following ideologies on a scale of 1-7 (select NA if unfamiliar): Conservatism, Liberalism, Democratic Socialism, Libertarianism, Progressivism.
+
+```{r,fig.align='left',echo=FALSE,warning=FALSE,fig.dim=c(6,4)}
+means <- df_s1_elg %>%
+  dplyr::select(PID,ideo_con:ideo_prog) %>% 
+  pivot_longer(-PID,
+               names_to = "ideo",
+               values_to = "score") %>% 
+  filter(!is.na(score)) %>% 
+  group_by(ideo) %>% 
+  summarise(score = mean(score)) %>% 
+  ungroup()
+
+df_s1_elg %>%
+  dplyr::select(PID,ideo_con:ideo_prog) %>% 
+  pivot_longer(-PID,
+               names_to = "ideo",
+               values_to = "score") %>% 
+  filter(!is.na(score)) %>%  
+  ggplot() +
+  geom_histogram(aes(x = score), 
+                 fill = "lightblue",
+                 binwidth = 1,
+                 color = NA) +
+  scale_x_continuous(limits = c(0,8),
+                     breaks = seq(1,7,1)) +
+  geom_vline(data = means,mapping = aes(xintercept = score),
+             color = "black",
+             linetype = "dashed",
+             size = 1.1) +
+  theme(panel.grid.major = element_blank(),
+        panel.grid.minor = element_blank(),
+        panel.background = element_blank(),
+        axis.ticks = element_blank(),
+        axis.line = element_line(color = "grey66"),
+        axis.text.y = element_text(color = "black"),
+        axis.text.x = element_text(color = "black",
+                                   face = "bold")) +
+  facet_wrap(~ideo,nrow = 2)
+
+```
+
+## Party affiliation
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+df_s1_elg %>% 
+  group_by(party_id) %>% 
+  summarise(N = n()) %>% 
+  ungroup() %>% 
+  kableExtra::kable(booktabs = T,
+                    format = "latex")
+
+```
+
+# Measures
+
+## Class-based Zero-Sum Beliefs
+
+```{r,include=F}
+alpha_table <- df_s1_elg %>% 
+  dplyr::select(zs_class_1,
+         zs_class_2,
+         zs_class_3R) %>% 
+  psych::alpha()
+
+alpha <- alpha_table$total[1]
+```
+
+1. If the upper class becomes richer, this comes at the expense of the working class\
+2. If the upper class makes more money, then the working class makes less money\
+3. If the upper class does better economically, this does NOT come at the expense of the working class [R]\
+\
+*alpha* = **`r round(alpha,2)`**
+
+## SDO
+
+```{r,include=F}
+alpha_table <- df_s1_elg %>% 
+  dplyr::select(SDO_1:SDO_8R) %>% 
+  psych::alpha()
+
+alpha <- alpha_table$total[1]
+```
+
+1. An ideal society requires some groups to be on top and others to be on the bottom\
+2. Some groups of people are simply inferior to other groups\
+3. No one group should dominate in society [R]\
+4. Groups at the bottom are just as deserving as groups at the top [R]\
+5. Group equality should not be our primary goal\
+6. It is unjust to try to make groups equal\
+7. We should do what we can to equalize conditions for different groups [R]\
+8. We should work to give all groups an equal chance to succeed [R]\
+\
+*alpha* = **`r round(alpha,2)`**
+
+## Zero-Sum Mindset
+
+```{r,include=F}
+alpha_table <- df_s1_elg %>% 
+  dplyr::select(zsm_1:zsm_7R) %>% 
+  psych::alpha()
+
+alpha <- alpha_table$total[1]
+```
+
+1. The success of one person is usually the failure of another person\
+2. Life is such that when one person gains, someone else has to lose\
+3. When someone does much for others, they lose\
+4. In most situations, different people's interests are incompatible\
+5. When one person is winning, it does not mean that someone else is losing [R]\
+6. Life is like a tennis game - A person wins only when another person loses\
+7. One person’s success is not another person’s failure [R]\
+\
+*alpha* = **`r round(alpha,2)`**
+
+## Class Solidarity
+
+```{r,include=F}
+alpha_table <- df_s1_elg %>% 
+  dplyr::select(soli_1:soli_6) %>% 
+  psych::alpha()
+
+alpha <- alpha_table$total[1]
+```
+
+1. I feel a sense of solidarity with the working class\
+2. I support policy that helps the working class\
+3. I stand united with the working class\
+4. Policies negatively affecting the working class should be changed\
+5. More people should know about how the working class are negatively affected by economic issues\
+6. It's important to challenge the power structures that disadvantage the working class\
+\
+*alpha* = **`r round(alpha,2)`**
+
+## Linked Fate
+
+What happens to working class people in this country will have something to do with what happens in your life (1 = *Strongly Disagree* to 7 = *Strongly Agree*)
+
+## Policy Support
+
+Participants saw one of six policy descriptions:\
+\
+**Minimum wage:** Congress has not increased the federal minimum wage, currently set at 7.25 dollars, since 2009. Some Congresspeople are proposing a policy that would gradually raise the federal minimum wage to 15 dollars an hour by 2025. After 2025, the minimum wage would be adjusted each year to keep pace with growth in the median wage, a measure of wages for typical workers.\
+**Student debt:** Some Congresspeople are proposing a policy that would help to address the student loan debt crisis by forgiving up to 50,000 dollars in loans per borrower. Approximately 42 million Americans, or about 1 in 6 American adults, owe a cumulative 1.6 trillion dollars in student loans. Student loans are now the second-largest slice of household debt after mortgages, bigger than credit card debt.\
+**Housing:** Some Congresspeople are proposing a housing affordability policy that would help ensure that every American has a place to live. The policy would allow for smaller, lower cost homes like duplexes, townhouses, and garden apartments to be built in middle- and upper-class neighborhoods, and would build new nonprofit homes.\
+**Climate:** Some Congresspeople are proposing a Green New Deal bill which would phase out the use of fossil fuels, with the government providing clean energy jobs for people who can’t find employment in the private sector. All jobs would pay at least 15 dollars an hour, and include healthcare benefits and collective bargaining rights. This would be paid for by raising taxes on incomes over 200,000 dollars a year by 15 percentage points.\
+**Healthcare:** Some Congresspeople are proposing a bill which would expand Medicare to every American, with the government providing health insurance to every American citizen. All out of pocket costs such as copays and premiums would be eliminated. This policy would change Americans’ insurance provider but would not prevent them from accessing medical services already available to them under their current plan. Individuals could supplement the public plan with a private option if they wanted.\
+**Marijuana:** Some Congresspeople are proposing a bill which would lead to comprehensive marijuana reform legislation. It would help rebuild communities that have been the most impacted by marijuana criminalization under federal law. It would also remove marijuana from the federal list of banned substances, allowing states to set their own marijuana policies. It would also create pathways to erase previous convictions and prohibit discrimination based on the use or possession of marijuana.\
+\
+Then, they were asked: To what extent do you oppose or support this policy? (1 = *Strongly Oppose* to 7 = *Strongly Support*)
+
+## Perceived impact
+
+In your opinion, what is the impact of this policy on… (-3 = *Extremely Harmful* to 3 = *Extremely Helpful*)\
+1. The average working class person\
+2. The average upper class person
+
+# Analysis
+
+## Correlations
+
+```{r,fig.align='left',echo=FALSE,warning=FALSE,message=FALSE,fig.dim=c(7,7)}
+df_s1_elg %>% 
+  select(zs_class,
+         soli,
+         support,
+         SDO,
+         zsm,
+         lnktfate,
+         ideo_con,ideo_lib,ideo_lbrtn,ideo_prog,ideo_demsoc,
+         white,man,income_num,edu_num,class_num) %>%
+  corPlot(upper = TRUE,stars = TRUE,xsrt = 270)
+```
+
+## Linear models
+
+### Linear model 1A
+
+Outcome: support for policy\
+Predictor: zs_class
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+m1 <- lm(support ~ zs_class,data = df_s1_elg)
+
+apa_lm <- apa_print(m1)
+kableExtra::kable(
+  apa_lm$table,
+  #placement = "H",
+  format = "latex",
+  booktabs = T,
+  align = c("l",rep("c",5))
+)
+```
+
+### Linear model 1B
+
+Outcome: support for policy\
+Predictor: zs_class\
+Controls: zero-sum mindset, SDO, conservatism
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+m1 <- lm(support ~ zs_class + zsm + SDO + ideo_con,data = df_s1_elg)
+
+apa_lm <- apa_print(m1)
+kableExtra::kable(
+  apa_lm$table,
+  #placement = "H",
+  format = "latex",
+  booktabs = T,
+  align = c("l",rep("c",5))
+)
+```
+
+### Linear model 1C
+
+Outcome: support for policy\
+Predictor: zs_class\
+Controls: zero-sum mindset, SDO, conservatism, age, race (white = 1; non-white = 0), gender (man = 1; non-man = 0), income, education, SES.
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+m1 <- lm(support ~ zs_class + zsm + SDO + ideo_con + age + white + man + income_num + edu_num + class_num,data = df_s1_elg)
+
+etatable <- eta_squared(m1)
+eta_squared <- round(etatable$Eta2_partial[1],2)
+f_squared <- round(eta2_to_f2(etatable$Eta2_partial[1]),2)
+
+apa_lm <- apa_print(m1)
+kableExtra::kable(
+  apa_lm$table,
+  #placement = "H",
+  format = "latex",
+  booktabs = T,
+  align = c("l",rep("c",5))
+)
+```
+
+Class Zero-Sum *eta* squared = **`r eta_squared`**\
+Class Zero-Sum *f* squared = **`r f_squared`**
+
+### Linear model 2A
+
+Outcome: solidarity\
+Predictor: zs_class
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+m1 <- lm(soli ~ zs_class,data = df_s1_elg)
+
+apa_lm <- apa_print(m1)
+kableExtra::kable(
+  apa_lm$table,
+  #placement = "H",
+  format = "latex",
+  booktabs = T,
+  align = c("l",rep("c",5))
+)
+```
+
+### Linear model 2B
+
+Outcome: solidarity\
+Predictor: zs_class\
+Controls: zero-sum mindset, SDO, conservatism
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+m1 <- lm(soli ~ zs_class + zsm + SDO + ideo_con,data = df_s1_elg)
+
+apa_lm <- apa_print(m1)
+kableExtra::kable(
+  apa_lm$table,
+  #placement = "H",
+  format = "latex",
+  booktabs = T,
+  align = c("l",rep("c",5))
+)
+```
+
+### Linear model 2C
+
+Outcome: solidarity\
+Predictor: zs_class\
+Controls: zero-sum mindset, SDO, conservatism, age, race (white = 1; non-white = 0), gender (man = 1; non-man = 0), income, education, SES.
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+m1 <- lm(soli ~ zs_class + zsm + SDO + ideo_con + age + white + man + income_num + edu_num + class_num,data = df_s1_elg)
+
+etatable <- eta_squared(m1)
+eta_squared <- round(etatable$Eta2_partial[1],2)
+f_squared <- round(eta2_to_f2(etatable$Eta2_partial[1]),2)
+
+apa_lm <- apa_print(m1)
+kableExtra::kable(
+  apa_lm$table,
+  #placement = "H",
+  format = "latex",
+  booktabs = T,
+  align = c("l",rep("c",5))
+)
+```
+
+Class Zero-Sum *eta* squared = **`r eta_squared`**\
+Class Zero-Sum *f* squared = **`r f_squared`**
+
+## Mediation models
+
+### Mediation model 1
+
+Outcome: support for policy\
+Mediator: solidarity\
+Predictor: zs_class\
+Controls: zero-sum mindset, SDO, conservatism, age, race (white = 1; non-white = 0), gender (man = 1; non-man = 0), income, education, SES.
+
+```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
+# Step 1: Fit the mediator model
+# soli ~ predictor + controls
+med.fit <- lm(soli ~ zs_class + SDO + zsm + ideo_con + age + income_num + edu_num + class_num + white + man,
+              data = df_s1_elg)
+
+# Step 2: Fit the outcome model
+# support ~ predictor + mediator + controls
+out.fit <- lm(support ~ zs_class + soli + SDO + zsm + ideo_con + age + income_num + edu_num + class_num + white + man,
+              data = df_s1_elg)
+
+# Step 3: Conduct the mediation analysis
+med.out <- mediate(med.fit, out.fit,
+                   treat = "zs_class",
+                   mediator = "soli",
+                   boot = TRUE, sims = 10000) 
+
+# Step 4: Create table
+med_results <- data.frame(
+  Effect = c("ACME (indirect)", "ADE (direct)", "Total Effect", "Prop. Mediated"),
+  Estimate = round(c(med.out$d0, med.out$z0, med.out$tau.coef, med.out$n0), 3),
+  `95% CI Lower` = round(c(med.out$d0.ci[1], med.out$z0.ci[1], med.out$tau.ci[1], med.out$n0.ci[1]), 3),
+  `95% CI Upper` = round(c(med.out$d0.ci[2], med.out$z0.ci[2], med.out$tau.ci[2], med.out$n0.ci[2]), 3),
+  `p-value` = signif(c(med.out$d0.p, med.out$z0.p, med.out$tau.p, med.out$n0.p), 3)
+)
+
+kableExtra::kable(med_results, caption = "Mediation Analysis Summary",
+      booktabs = T,
+      format = "latex",
+      align = c("l",rep("c",5))) %>% 
+  kable_styling(latex_options = "hold_position")
+
+```
