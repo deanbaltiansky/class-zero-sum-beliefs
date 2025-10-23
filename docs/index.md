@@ -8,4 +8,5 @@ output:
 
 By Dean Baltiansky
 
-<img src="assets/banner-sign.png" alt="Sign Banner" style="width:100%; height:auto;">
+<img src="./assets/banner-workers.png" alt="Workers - Banner" style="width:100%; height:auto;">
+
