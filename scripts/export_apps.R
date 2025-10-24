@@ -62,29 +62,27 @@ export_one_app <- function(app) {
   fs::dir_create(dest, recurse = TRUE)
   message(sprintf("• Exporting %s/%s -> %s", app$study, app$appname, dest))
   
-  # Be robust to shinylive::export signature differences across versions
+  # version-agnostic call
   export_formals <- names(formals(shinylive::export))
   args <- list(destdir = dest)
-  
-  if ("appdir" %in% export_formals) {
-    args$appdir <- app$dir
-  } else if ("app_dir" %in% export_formals) {
-    args$app_dir <- app$dir
-  } else {
-    stop("Could not find a valid argument name for app directory in shinylive::export().")
-  }
-  
-  # Optional flags depending on version
+  if ("appdir" %in% export_formals) args$appdir <- app$dir else if ("app_dir" %in% export_formals) args$app_dir <- app$dir
   if ("overwrite" %in% export_formals) args$overwrite <- TRUE
-  if ("quiet"     %in% export_formals) args$quiet     <- TRUE
-  if ("verbose"   %in% export_formals) args$verbose   <- FALSE
-  
+  if ("quiet" %in% export_formals) args$quiet <- TRUE
+  if ("verbose" %in% export_formals) args$verbose <- FALSE
   do.call(shinylive::export, args)
   
-  if (!is.null(app$cleanup)) {
-    fs::dir_delete(app$cleanup)
+  # --- sanity checks: data files must be present for shinylive to fetch ---
+  required <- fs::path(dest, "data", c("df_czs_elg.csv", "var_info.csv"))
+  missing <- required[!fs::file_exists(required)]
+  if (length(missing)) {
+    warning("After export, missing expected files:\n  - ",
+            paste(fs::path_file(missing), collapse = "\n  - "),
+            "\nMake sure these exist in study-1/app/data/ before exporting.")
   }
+  
+  if (!is.null(app$cleanup)) fs::dir_delete(app$cleanup)
 }
+
 
 
 render_index <- function() {

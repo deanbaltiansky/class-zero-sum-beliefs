@@ -4,9 +4,8 @@ library(shiny)
 # ---- Data sources (shinylive = local files only) ----
 numeric_vars_user <- c(
   # << put your numeric/continuous choices here for Class Zero-Sum >>
-  # You can start by pasting the BSC list, then prune/expand for this dataset.
   # Example placeholders:
-  "zs_class","SDO","zsm","lnktfate","soli","support"
+  "zs_class","SDO","zsm","lnktfate","soli","support",
   "ideo_con","ideo_lib","ideo_demsoc","ideo_lbrtn","ideo_prog",
   "man","white","age","income_num","edu_num"
 )
@@ -36,7 +35,7 @@ load_var_info <- function() {
 
 ui <- tagList(
   tags$head(
-    tags<title>("Correlations App"),
+    tags$title("Correlations App"),
     tags$script(HTML('window.addEventListener("load", function(){ document.title = "Correlations App"; });'))
   ),
   fluidPage(
