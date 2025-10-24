@@ -1,18 +1,27 @@
 # study-1/app/app.R
 library(shiny)
 
-# ---- Data sources (shinylive = local files only) ----
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
+# -----------------------------
+# User-configured variable list
+# -----------------------------
 numeric_vars_user <- c(
-  # << put your numeric/continuous choices here for Class Zero-Sum >>
-  # Example placeholders:
+  # Class Zero-Sum: edit as needed; tolerant matching will bridge small diffs
   "zs_class","SDO","zsm","lnktfate","soli","support",
   "ideo_con","ideo_lib","ideo_demsoc","ideo_lbrtn","ideo_prog",
   "man","white","age","income_num","edu_num"
 )
 
+# -----------------------------
+# Data + var info loaders
+# -----------------------------
 load_data <- function() {
-  p <- "data/df_czs_elg.csv"  # <— rename if you prefer; must be bundled with the app
-  if (!file.exists(p)) stop("Missing data/df_czs_elg.csv in app/data/")
+  # Canonical filename for this project
+  p <- "data/df_czs_elg.csv"
+  if (!file.exists(p)) {
+    stop("Missing data/df_czs_elg.csv in app/data/ . Place the file at study-1/app/data/")
+  }
   read.csv(p, check.names = FALSE, stringsAsFactors = FALSE)
 }
 
@@ -33,6 +42,9 @@ load_var_info <- function() {
   unique(vi[c("var","label","description")])
 }
 
+# -----------------------------
+# UI
+# -----------------------------
 ui <- tagList(
   tags$head(
     tags$title("Correlations App"),
@@ -45,7 +57,12 @@ ui <- tagList(
       sidebarPanel(
         helpText("Pick two continuous variables to explore their linear relationship."),
         selectInput("xvar", "X axis", choices = NULL),
-        selectInput("yvar", "Y axis", choices = NULL)
+        selectInput("yvar", "Y axis", choices = NULL),
+        tags$hr(),
+        tags$details(
+          tags$summary("Debug: detected columns"),
+          verbatimTextOutput("debug_cols", placeholder = TRUE)
+        )
       ),
       mainPanel(
         plotOutput("scatter", height = 420),
@@ -60,32 +77,100 @@ ui <- tagList(
   )
 )
 
+# -----------------------------
+# Server
+# -----------------------------
 server <- function(input, output, session) {
   df <- load_data()
   var_info <- load_var_info()
   
+  # --- tolerant name normalization (case/space/underscore) ---
+  norm_name <- function(x) tolower(gsub("\\s+", "_", trimws(x)))
+  
+  # Map: normalized df name -> original df name (so we always use real columns)
+  df_colmap <- setNames(names(df), nm = norm_name(names(df)))
+  
+  # Normalize var_info too, for resilient label/description lookup
+  if (nrow(var_info)) {
+    var_info$var_norm <- norm_name(var_info$var)
+  }
+  
+  # Resolve requested names to actual df columns using normalized map
+  resolve_cols <- function(requested) {
+    req_norm <- norm_name(requested)
+    hits <- df_colmap[intersect(req_norm, names(df_colmap))]
+    unname(hits)
+  }
+  
+  # Helpers for labels/descriptions (try exact, then normalized)
   get_label <- function(v) {
-    if (is.null(v) || !nzchar(v)) return("")
+    if (is.null(v) || !nzchar(v) || !nrow(var_info)) return(v %||% "")
     hit <- var_info$label[var_info$var == v]
-    if (length(hit) == 1 && nzchar(hit)) hit else v
+    if (length(hit) == 1 && nzchar(hit)) return(hit)
+    if ("var_norm" %in% names(var_info)) {
+      hit2 <- var_info$label[var_info$var_norm == norm_name(v)]
+      if (length(hit2) == 1 && nzchar(hit2)) return(hit2)
+    }
+    v
   }
+  
   get_desc <- function(v) {
-    if (is.null(v) || !nzchar(v)) return("")
+    if (is.null(v) || !nzchar(v) || !nrow(var_info)) return("No description found.")
     hit <- var_info$description[var_info$var == v]
-    if (length(hit) == 1 && nzchar(hit)) hit else "No description found."
+    if (length(hit) == 1 && nzchar(hit)) return(hit)
+    if ("var_norm" %in% names(var_info)) {
+      hit2 <- var_info$description[var_info$var_norm == norm_name(v)]
+      if (length(hit2) == 1 && nzchar(hit2)) return(hit2)
+    }
+    "No description found."
   }
   
-  available <- intersect(numeric_vars_user, names(df))
-  if (length(available) < 2) {
-    stop("Fewer than 2 valid numeric columns found. Check df_czs_elg.csv column names.")
+  # -----------------------------
+  # Build available choices
+  # -----------------------------
+  # 1) Try curated list first
+  resolved <- resolve_cols(numeric_vars_user)
+  
+  # 2) Fallback: auto-detect numeric-ish columns so the app is usable immediately
+  if (length(resolved) < 2) {
+    is_numish <- vapply(df, function(x) {
+      if (is.numeric(x)) return(TRUE)
+      if (is.character(x)) {
+        sup <- suppressWarnings(as.numeric(x))
+        return(any(!is.na(sup)))
+      }
+      FALSE
+    }, logical(1))
+    resolved <- names(df)[is_numish]
   }
   
+  # 3) Keep order stable and unique
+  available <- unique(intersect(resolved, names(df)))
+  
+  validate(
+    need(length(available) >= 2,
+         paste0(
+           "Not enough variables to run.\n\n",
+           "CSV columns detected (first 30):\n  - ",
+           paste(utils::head(names(df), 30), collapse = "\n  - "), "\n\n",
+           "Your requested list (first 30):\n  - ",
+           paste(utils::head(numeric_vars_user, 30), collapse = "\n  - "), "\n\n",
+           "Tip: check for small name differences (case/underscores/spaces)."
+         ))
+  )
+  
+  # Names shown = labels; values = actual df column names
   choice_labels <- vapply(available, get_label, character(1))
+  # If any labels are "", fall back to the column name
+  choice_labels[!nzchar(choice_labels)] <- available[!nzchar(choice_labels)]
   choices <- setNames(object = available, nm = choice_labels)
   
   updateSelectInput(session, "xvar", choices = choices, selected = available[1])
   updateSelectInput(session, "yvar", choices = choices, selected = available[2])
   
+  # -----------------------------
+  # Reactive data for selected pair
+  # -----------------------------
   pair_data <- reactive({
     req(input$xvar, input$yvar)
     vars <- c(input$xvar, input$yvar)
@@ -103,6 +188,9 @@ server <- function(input, output, session) {
     d
   })
   
+  # -----------------------------
+  # Outputs
+  # -----------------------------
   output$scatter <- renderPlot({
     d <- pair_data()
     plot(
@@ -125,9 +213,19 @@ server <- function(input, output, session) {
     req(input$xvar)
     tags$p(tags$strong("X: "), tags$em(get_desc(input$xvar)))
   })
+  
   output$ydesc <- renderUI({
     req(input$yvar)
     tags$p(tags$strong("Y: "), tags$em(get_desc(input$yvar)))
+  })
+  
+  output$debug_cols <- renderText({
+    paste0(
+      "df columns (first 50):\n  - ",
+      paste(utils::head(names(df), 50), collapse = "\n  - "),
+      "\n\nMatched available choices:\n  - ",
+      paste(available, collapse = "\n  - ")
+    )
   })
 }
 
