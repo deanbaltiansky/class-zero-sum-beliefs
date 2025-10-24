@@ -53,7 +53,7 @@ library(quanteda)
 
 repo_url <- "https://raw.githubusercontent.com/deanbaltiansky/class-zero-sum-beliefs/main/study-1/data/"
 
-df_czs <- readr::read_csv(paste0(repo_url,"df_czs.csv"), show_col_types = FALSE)
+df_s1 <- readr::read_csv(paste0(repo_url,"df_czs.csv"), show_col_types = FALSE)
 ```
 
 ```{r,include=FALSE,message=FALSE,warning=FALSE}
@@ -172,7 +172,7 @@ df_s1_elg %>%
   ggplot(aes(x = income)) +
   geom_bar() +
   geom_vline(xintercept = median_income_num, 
-             color = "blue", linetype = "dashed") +
+             color = "lightblue", linetype = "dashed") +
   theme(panel.grid.major = element_blank(),
         panel.grid.minor = element_blank(),
         panel.background = element_blank(),
@@ -532,6 +532,13 @@ df_s1_elg %>%
 
 ## Correlations
 
+\
+<a href="./app/index.html" target="_blank" rel="noopener"
+     style="background:#0b69ff;color:white;padding:0.55em 0.9em;border-radius:8px;text-decoration:none;">
+    EXPLORE CORRELATIONS ↗
+  </a>\
+\
+
 ```{r,fig.align='left',echo=FALSE,warning=FALSE,message=FALSE,fig.dim=c(9,9)}
 df_s1_elg %>% 
   select(zs_class,
@@ -547,171 +554,3 @@ df_s1_elg %>%
 
 ## Linear models
 
-### Linear model 1A
-
-Outcome: support for policy\
-Predictor: zs_class
-
-```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
-m1 <- lm(support ~ zs_class,data = df_s1_elg)
-
-apa_lm <- apa_print(m1)
-kableExtra::kable(
-  apa_lm$table,
-  #placement = "H",
-  format = "latex",
-  booktabs = T,
-  align = c("l",rep("c",5))
-)
-```
-
-### Linear model 1B
-
-Outcome: support for policy\
-Predictor: zs_class\
-Controls: zero-sum mindset, SDO, conservatism
-
-```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
-m1 <- lm(support ~ zs_class + zsm + SDO + ideo_con,data = df_s1_elg)
-
-apa_lm <- apa_print(m1)
-kableExtra::kable(
-  apa_lm$table,
-  #placement = "H",
-  format = "latex",
-  booktabs = T,
-  align = c("l",rep("c",5))
-)
-```
-
-### Linear model 1C
-
-Outcome: support for policy\
-Predictor: zs_class\
-Controls: zero-sum mindset, SDO, conservatism, age, race (white = 1; non-white = 0), gender (man = 1; non-man = 0), income, education, SES.
-
-```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
-m1 <- lm(support ~ zs_class + zsm + SDO + ideo_con + age + white + man + income_num + edu_num + class_num,data = df_s1_elg)
-
-etatable <- eta_squared(m1)
-eta_squared <- round(etatable$Eta2_partial[1],2)
-f_squared <- round(eta2_to_f2(etatable$Eta2_partial[1]),2)
-
-apa_lm <- apa_print(m1)
-kableExtra::kable(
-  apa_lm$table,
-  #placement = "H",
-  format = "latex",
-  booktabs = T,
-  align = c("l",rep("c",5))
-)
-```
-
-Class Zero-Sum *eta* squared = **`r eta_squared`**\
-Class Zero-Sum *f* squared = **`r f_squared`**
-
-### Linear model 2A
-
-Outcome: solidarity\
-Predictor: zs_class
-
-```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
-m1 <- lm(soli ~ zs_class,data = df_s1_elg)
-
-apa_lm <- apa_print(m1)
-kableExtra::kable(
-  apa_lm$table,
-  #placement = "H",
-  format = "latex",
-  booktabs = T,
-  align = c("l",rep("c",5))
-)
-```
-
-### Linear model 2B
-
-Outcome: solidarity\
-Predictor: zs_class\
-Controls: zero-sum mindset, SDO, conservatism
-
-```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
-m1 <- lm(soli ~ zs_class + zsm + SDO + ideo_con,data = df_s1_elg)
-
-apa_lm <- apa_print(m1)
-kableExtra::kable(
-  apa_lm$table,
-  #placement = "H",
-  format = "latex",
-  booktabs = T,
-  align = c("l",rep("c",5))
-)
-```
-
-### Linear model 2C
-
-Outcome: solidarity\
-Predictor: zs_class\
-Controls: zero-sum mindset, SDO, conservatism, age, race (white = 1; non-white = 0), gender (man = 1; non-man = 0), income, education, SES.
-
-```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
-m1 <- lm(soli ~ zs_class + zsm + SDO + ideo_con + age + white + man + income_num + edu_num + class_num,data = df_s1_elg)
-
-etatable <- eta_squared(m1)
-eta_squared <- round(etatable$Eta2_partial[1],2)
-f_squared <- round(eta2_to_f2(etatable$Eta2_partial[1]),2)
-
-apa_lm <- apa_print(m1)
-kableExtra::kable(
-  apa_lm$table,
-  #placement = "H",
-  format = "latex",
-  booktabs = T,
-  align = c("l",rep("c",5))
-)
-```
-
-Class Zero-Sum *eta* squared = **`r eta_squared`**\
-Class Zero-Sum *f* squared = **`r f_squared`**
-
-## Mediation models
-
-### Mediation model 1
-
-Outcome: support for policy\
-Mediator: solidarity\
-Predictor: zs_class\
-Controls: zero-sum mindset, SDO, conservatism, age, race (white = 1; non-white = 0), gender (man = 1; non-man = 0), income, education, SES.
-
-```{r,echo=FALSE,results='asis',warning=FALSE,message=F,fig.align='left'}
-# Step 1: Fit the mediator model
-# soli ~ predictor + controls
-med.fit <- lm(soli ~ zs_class + SDO + zsm + ideo_con + age + income_num + edu_num + class_num + white + man,
-              data = df_s1_elg)
-
-# Step 2: Fit the outcome model
-# support ~ predictor + mediator + controls
-out.fit <- lm(support ~ zs_class + soli + SDO + zsm + ideo_con + age + income_num + edu_num + class_num + white + man,
-              data = df_s1_elg)
-
-# Step 3: Conduct the mediation analysis
-med.out <- mediate(med.fit, out.fit,
-                   treat = "zs_class",
-                   mediator = "soli",
-                   boot = TRUE, sims = 10000) 
-
-# Step 4: Create table
-med_results <- data.frame(
-  Effect = c("ACME (indirect)", "ADE (direct)", "Total Effect", "Prop. Mediated"),
-  Estimate = round(c(med.out$d0, med.out$z0, med.out$tau.coef, med.out$n0), 3),
-  `95% CI Lower` = round(c(med.out$d0.ci[1], med.out$z0.ci[1], med.out$tau.ci[1], med.out$n0.ci[1]), 3),
-  `95% CI Upper` = round(c(med.out$d0.ci[2], med.out$z0.ci[2], med.out$tau.ci[2], med.out$n0.ci[2]), 3),
-  `p-value` = signif(c(med.out$d0.p, med.out$z0.p, med.out$tau.p, med.out$n0.p), 3)
-)
-
-kableExtra::kable(med_results, caption = "Mediation Analysis Summary",
-      booktabs = T,
-      format = "latex",
-      align = c("l",rep("c",5))) %>% 
-  kable_styling(latex_options = "hold_position")
-
-```
