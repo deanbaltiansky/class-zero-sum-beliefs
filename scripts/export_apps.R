@@ -5,7 +5,6 @@
 # - Sibling apps (nested):  study-*/X/app/app.R              -> docs/studies/<study>/X
 # - Sub-apps under app/:    study-*/app/Y[/app].R            -> docs/studies/<study>/Y
 
-# install.packages(c("fs","shinylive","rmarkdown"))  # run once if needed
 suppressPackageStartupMessages({
   library(fs)
   library(shinylive)
@@ -20,7 +19,7 @@ export_one <- function(app_dir, out_dir) {
   message("🚀 Exporting ", app_dir, "  -->  ", out_dir)
   if (dir_exists(out_dir)) dir_delete(out_dir)
   dir_create(out_dir, recurse = TRUE)
-  # NOTE: Matching BSC script: shinylive uses `appdir` (no underscore) here.
+  # NOTE: Match the BSC script API: shinylive uses `appdir` (no underscore)
   shinylive::export(appdir = app_dir, destdir = out_dir)
 }
 
@@ -31,7 +30,9 @@ if (length(study_dirs) == 0) {
   message("ℹ️  No study-* directories found. Nothing to export.")
 } else {
   dir_create("docs", recurse = TRUE)
-  file.create(path("docs", ".nojekyll"))  # keep for GitHub Pages / ShinyLive
+  file.create(path("docs", ".nojekyll"))  # required for GitHub Pages + ShinyLive
+  
+  exported <- character(0)
   
   for (study_dir in study_dirs) {
     study_name <- path_file(study_dir)
@@ -39,7 +40,9 @@ if (length(study_dirs) == 0) {
     # 1) Legacy main app at study-*/app
     legacy_app <- path(study_dir, "app")
     if (dir_exists(legacy_app) && is_shiny_app_dir(legacy_app)) {
-      export_one(legacy_app, path("docs", "studies", study_name, "app"))
+      out <- path("docs", "studies", study_name, "app")
+      export_one(legacy_app, out)
+      exported <- c(exported, paste0(study_name, "/app"))
     }
     
     # 2) Sibling apps: study-*/X and study-*/X/app
@@ -50,12 +53,16 @@ if (length(study_dirs) == 0) {
         if (identical(app_name, "app")) next  # handled above
         
         if (is_shiny_app_dir(sib)) {
-          export_one(sib, path("docs", "studies", study_name, app_name))
+          out <- path("docs", "studies", study_name, app_name)
+          export_one(sib, out)
+          exported <- c(exported, paste0(study_name, "/", app_name))
           next
         }
         nested_sib <- path(sib, "app")
         if (dir_exists(nested_sib) && is_shiny_app_dir(nested_sib)) {
-          export_one(nested_sib, path("docs", "studies", study_name, app_name))
+          out <- path("docs", "studies", study_name, app_name)
+          export_one(nested_sib, out)
+          exported <- c(exported, paste0(study_name, "/", app_name))
           next
         }
       }
@@ -67,23 +74,38 @@ if (length(study_dirs) == 0) {
       for (sub in subapps) {
         sub_name <- path_file(sub)
         if (is_shiny_app_dir(sub)) {
-          export_one(sub, path("docs", "studies", study_name, sub_name))
+          out <- path("docs", "studies", study_name, sub_name)
+          export_one(sub, out)
+          exported <- c(exported, paste0(study_name, "/app/", sub_name))
           next
         }
         nested_sub <- path(sub, "app")
         if (dir_exists(nested_sub) && is_shiny_app_dir(nested_sub)) {
-          export_one(nested_sub, path("docs", "studies", study_name, sub_name))
+          out <- path("docs", "studies", study_name, sub_name)
+          export_one(nested_sub, out)
+          exported <- c(exported, paste0(study_name, "/app/", sub_name))
           next
         }
       }
     }
   }
   
+  if (length(exported)) {
+    message("✅ Exported apps:\n  - ", paste(exported, collapse = "\n  - "))
+  } else {
+    message("ℹ️  Found no Shiny apps to export under study-*/")
+  }
+  
   message("🧩 Export complete. Rendering homepage…")
   
-  # ---- Render docs/index.(R)md -> docs/index.html (YAML-driven) ----
-  # Prefer index.Rmd if present; else index.md
-  input_candidates <- c(path("docs", "index.Rmd"), path("docs", "index.md"))
+  # ---- Render index -> docs/index.html ----
+  # Prefer docs/index.Rmd or docs/index.md; if missing, accept root index.Rmd/index.md.
+  input_candidates <- c(
+    path("docs", "index.Rmd"),
+    path("docs", "index.md"),
+    "index.Rmd",
+    "index.md"
+  )
   md_path <- input_candidates[file_exists(input_candidates)][1]
   
   if (!is.na(md_path) && nzchar(md_path)) {
@@ -95,7 +117,7 @@ if (length(study_dirs) == 0) {
       {
         rmarkdown::render(
           input       = md_path,
-          # IMPORTANT: no output_format here → respect YAML (toc_float, code_folding, etc.)
+          # IMPORTANT: no explicit output_format → respect YAML (toc, code_folding, etc.)
           output_file = "index.html",
           output_dir  = "docs",
           envir       = new.env(parent = emptyenv()),
@@ -112,7 +134,7 @@ if (length(study_dirs) == 0) {
       }
     )
   } else {
-    message("ℹ️  docs/index.Rmd or docs/index.md not found; skipping homepage render (existing docs/index.html, if any, will be served).")
+    message("ℹ️  No index.(R)md found in docs/ or repo root; skipping homepage render.")
   }
   
   message("✅ Done. Apps are under docs/studies/<study>/<app_folder>, homepage at docs/index.html")
