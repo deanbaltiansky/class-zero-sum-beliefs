@@ -1,0 +1,17 @@
+var,label,description
+zs_class,Class Zero-Sum Beliefs,Mean score of three items measuring the belief that the upper is gaining at the expense of the working class
+SDO,Social dominance orientation,Mean score of eight items measuring social dominance orientation (endorsement of social hierarchy in society)
+zsm,General Zero-Sum Mindset,Mean score of seven items measuring a general mindset by which the world is a zero-sum game
+lnktfate,Linked Fate,Single item: What happens to working class people in this country will have something to do with what happens in your life
+soli,Working class solidarity,Mean score of six items measuring solidarity with the working class
+support,Support for redistributive policy,Support for one of six redistributive policies
+ideo_con,Ideology: Conservative,Endorsement of conservative ideology
+ideo_lib,Ideology: Liberal,Endorsement of liberal ideology
+ideo_demsoc,Ideology: Democratic Socialist,Endorsement of democratic socialist ideology
+ideo_lbrtn,Ideology: Libertarian,Endorsement of libertarian ideology
+ideo_prog,Ideology: Progressive,Endorsement of progressive ideology
+man,Gender,Man = 1; Non-man = 0
+white,Race,White = 1; Non-white = 0
+age,Age,Age
+income_num,Income,Income: numeric
+edu_num,Education,Education: numeric

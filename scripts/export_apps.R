@@ -1,55 +1,123 @@
 # scripts/export_apps.R
-# Minimal Pages builder for this repo:
-# - Render docs/index.(R)md -> docs/index.html (self-contained)
-# - Keep Jekyll out of the way
+# Export Shiny apps and (re)render index.(R)md/md to docs/index.html
 
+# install.packages(c("fs","shinylive","rmarkdown"))  # run once if needed
 suppressPackageStartupMessages({
   library(fs)
+  library(shinylive)
+  library(rmarkdown)
 })
 
-abort <- function(msg) stop(paste0("❌ ", msg), call. = FALSE)
-info  <- function(msg) message(paste0("ℹ️  ", msg))
-ok    <- function(msg) message(paste0("✅ ", msg))
-
-# --- 0) Preconditions ---
-dir_create("docs", recurse = TRUE)
-file.create(path("docs", ".nojekyll"))  # Keep GH Pages from processing with Jekyll
-
-input_candidates <- c(path("docs", "index.Rmd"), path("docs", "index.md"))
-input <- input_candidates[file_exists(input_candidates)][1]
-if (is.na(input)) abort("docs/index.Rmd or docs/index.md not found.")
-
-if (!requireNamespace("rmarkdown", quietly = TRUE)) {
-  abort("Package 'rmarkdown' is not installed. install.packages('rmarkdown') and re-run.")
+# ---- Helpers ----
+is_shiny_app_dir <- function(p) {
+  file_exists(path(p, "app.R")) ||
+    (file_exists(path(p, "ui.R")) && file_exists(path(p, "server.R")))
 }
 
-# --- 1) Render to self-contained HTML in docs/ ---
-# - knit_root_dir/docs ensures relative resource paths (e.g., ./assets/...) resolve
-# - pandoc_args adds --self-contained even for plain .md
-# - intermediates_dir keeps temp files out of the repo root
-out_file <- path("docs", "index.html")
-info(paste0("Rendering ", input, " -> ", out_file))
+# Find apps under each study:
+# - Legacy main app:        study-*/app
+# - Sub-apps under app/:    study-*/app/<X>.R          -> treated as app "<X>"
+#                           study-*/app/<X>/app.R      -> treated as app "<X>"
+# - Sibling apps (flat):    study-*/<X>/app.R          -> treated as app "<X>"
+find_study_apps <- function() {
+  studies <- dir_ls(".", type = "directory", regexp = "study-[^/]+$")
+  out <- list()
+  for (s in studies) {
+    s_name <- path_file(s)
+    
+    # 1) study-*/app (main)
+    main_app <- path(s, "app")
+    if (dir_exists(main_app) && is_shiny_app_dir(main_app)) {
+      out[[length(out) + 1]] <- list(study = s_name, appname = "app", dir = main_app)
+    }
+    
+    # 2) study-*/app/<X>.R  OR  study-*/app/<X>/app.R
+    app_children <- if (dir_exists(main_app)) dir_ls(main_app, type = "any") else character(0)
+    for (child in app_children) {
+      if (is_dir(child) && is_shiny_app_dir(child)) {
+        out[[length(out) + 1]] <- list(study = s_name, appname = path_file(child), dir = child)
+      } else if (is_file(child) && grepl("\\.R$", child)) {
+        # wrap single file app into a temp dir for export
+        appname <- path_ext_remove(path_file(child))
+        tmp <- dir_create(file_temp(pattern = paste0("appwrap-", appname, "-")))
+        file_copy(child, path(tmp, "app.R"))
+        out[[length(out) + 1]] <- list(study = s_name, appname = appname, dir = tmp, cleanup = tmp)
+      }
+    }
+    
+    # 3) study-*/<X>/app.R (siblings)
+    sibs <- dir_ls(s, type = "directory", recurse = FALSE)
+    sibs <- sibs[basename(sibs) != "app"]
+    for (sib in sibs) {
+      if (is_shiny_app_dir(sib)) {
+        out[[length(out) + 1]] <- list(study = s_name, appname = path_file(sib), dir = sib)
+      }
+    }
+  }
+  out
+}
 
-rmarkdown::render(
-  input             = input,
-  output_file       = "index.html",
-  output_dir        = "docs",
-  knit_root_dir     = "docs",
-  intermediates_dir = "docs/.build",
-  envir             = new.env(parent = emptyenv()),
-  quiet             = TRUE,
-  output_format     = rmarkdown::html_document(self_contained = TRUE)
-)
+export_one_app <- function(app) {
+  dest <- fs::path("docs", "studies", app$study, app$appname)
+  fs::dir_create(dest, recurse = TRUE)
+  message(sprintf("• Exporting %s/%s -> %s", app$study, app$appname, dest))
+  
+  # Be robust to shinylive::export signature differences across versions
+  export_formals <- names(formals(shinylive::export))
+  args <- list(destdir = dest)
+  
+  if ("appdir" %in% export_formals) {
+    args$appdir <- app$dir
+  } else if ("app_dir" %in% export_formals) {
+    args$app_dir <- app$dir
+  } else {
+    stop("Could not find a valid argument name for app directory in shinylive::export().")
+  }
+  
+  # Optional flags depending on version
+  if ("overwrite" %in% export_formals) args$overwrite <- TRUE
+  if ("quiet"     %in% export_formals) args$quiet     <- TRUE
+  if ("verbose"   %in% export_formals) args$verbose   <- FALSE
+  
+  do.call(shinylive::export, args)
+  
+  if (!is.null(app$cleanup)) {
+    fs::dir_delete(app$cleanup)
+  }
+}
 
 
-if (!fs::file_exists(out_file)) abort("Render reported success, but docs/index.html was not created.")
-ok("Rendered docs/index.html")
+render_index <- function() {
+  input <- if (file_exists("index.Rmd")) {
+    "index.Rmd"
+  } else if (file_exists("index.md")) {
+    "index.md"
+  } else if (file_exists(path("docs","index.Rmd"))) {
+    path("docs","index.Rmd")
+  } else if (file_exists(path("docs","index.md"))) {
+    path("docs","index.md")
+  } else {
+    message("No index.Rmd or index.md found; skipping landing page render.")
+    return(invisible(NULL))
+  }
+  
+  dir_create("docs")
+  message(sprintf("• Rendering %s -> docs/index.html", input))
+  rmarkdown::render(
+    input        = input,
+    output_file  = "index.html",
+    output_dir   = "docs",
+    envir        = new.env(parent = globalenv()),
+    output_options = list(self_contained = TRUE)
+  )
+}
 
-# --- 2) Sanity checks helpful during setup ---
-if (!dir_exists("docs/assets")) {
-  info("No docs/assets/ directory found. If you reference ./assets/... create it under docs/.")
+# ---- Run ----
+apps <- find_study_apps()
+if (length(apps)) {
+  invisible(lapply(apps, export_one_app))
 } else {
-  ok("Found docs/assets/ directory.")
+  message("No Shiny apps found under study-*/ … skipping shinylive export.")
 }
-
-ok("Done. Push to main and GitHub Pages will serve docs/index.html.")
+render_index()
+message("Done.")
